@@ -29,50 +29,43 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.Callable;
 
 /**
  * Utility class with methods to help perform the HTTP request and
  * parse the response.
  */
-public final class Utils {
-
-    /** Tag for the log messages */
-    public static final String LOG_TAG = Utils.class.getSimpleName();
-
+public class ThreadTemplate implements Callable<Event> {
     /**
-     * Query the USGS dataset and return an {@link Event} object to represent a single earthquake.
+     * Tag for the log messages
      */
-    public static Event fetchEarthquakeData(String requestUrl) {
-        // Create URL object
-        URL url = createUrl(requestUrl);
+    private static final String LOG_TAG = ThreadTemplate.class.getSimpleName();
+    private final URL url;
 
-        // Perform HTTP request to the URL and receive a JSON response back
-        String jsonResponse = null;
-        try {
-            jsonResponse = makeHttpRequest(url);
-        } catch (IOException e) {
-            Log.e(LOG_TAG, "Error closing input stream", e);
+    public ThreadTemplate(URL inURL) {
+        URL useURL = null;
+        if (inURL == null) {
+            try {
+                useURL = new URL("http", "0.0.0.0", "/");
+            } catch (MalformedURLException err) {
+                Log.d(LOG_TAG, "This should never happen here.", err);
+            }
+        } else {
+            useURL = inURL;
         }
-
-        // Extract relevant fields from the JSON response and create an {@link Event} object
-        Event earthquake = extractFeatureFromJson(jsonResponse);
-
-        // Return the {@link Event}
-        return earthquake;
+        url = useURL;
     }
 
-    /**
-     * Returns new URL object from the given string URL.
-     */
-    private static URL createUrl(String stringUrl) {
-        URL url = null;
+    public Event call() throws IOException {
+        String jsonResponse;
         try {
-            url = new URL(stringUrl);
-        } catch (MalformedURLException e) {
-            Log.e(LOG_TAG, "Error with creating URL ", e);
+            jsonResponse = makeHttpRequest(url);
+        } catch (IOException err) {
+            err.printStackTrace();
+            throw err;
         }
-        return url;
+        return extractFeatureFromJson(jsonResponse);
     }
 
     /**
@@ -123,7 +116,7 @@ public final class Utils {
     private static String readFromStream(InputStream inputStream) throws IOException {
         StringBuilder output = new StringBuilder();
         if (inputStream != null) {
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, Charset.forName("UTF-8"));
+            InputStreamReader inputStreamReader = new InputStreamReader(inputStream, StandardCharsets.UTF_8);
             BufferedReader reader = new BufferedReader(inputStreamReader);
             String line = reader.readLine();
             while (line != null) {
@@ -141,7 +134,7 @@ public final class Utils {
     private static Event extractFeatureFromJson(String earthquakeJSON) {
         // If the JSON string is empty or null, then return early.
         if (TextUtils.isEmpty(earthquakeJSON)) {
-            return null;
+            return new Event();
         }
 
         try {
@@ -165,6 +158,6 @@ public final class Utils {
         } catch (JSONException e) {
             Log.e(LOG_TAG, "Problem parsing the earthquake JSON results", e);
         }
-        return null;
+        return new Event();
     }
 }

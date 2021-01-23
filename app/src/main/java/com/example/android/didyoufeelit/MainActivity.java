@@ -16,8 +16,17 @@
 package com.example.android.didyoufeelit;
 
 import android.os.Bundle;
-import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
 import android.widget.TextView;
+
+import androidx.appcompat.app.AppCompatActivity;
+
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.FutureTask;
 
 /**
  * Displays the perceived strength of a single earthquake event based on responses from people who
@@ -25,33 +34,50 @@ import android.widget.TextView;
  */
 public class MainActivity extends AppCompatActivity {
 
-    /** URL for earthquake data from the USGS dataset */
-    private static final String USGS_REQUEST_URL =
-            "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2016-01-01&endtime=2016-05-02&minfelt=50&minmagnitude=5";
+    /**
+     * URL for earthquake data from the USGS dataset
+     */
+    private static final String USGS_REQUEST_URL = "https://earthquake.usgs.gov/fdsnws/event/1/query?format=geojson&starttime=2016-01-01&endtime=2016-05-02&minfelt=50&minmagnitude=5";
+    private final Executor executor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
-        // Perform the HTTP request for earthquake data and process the response.
-        Event earthquake = Utils.fetchEarthquakeData(USGS_REQUEST_URL);
-
+        URL getURL = null;
+        Event useEvent = new Event();
+        try { getURL = new URL(USGS_REQUEST_URL); }
+        catch (MalformedURLException err) {
+            err.printStackTrace();
+            try { getURL = new URL("http", "0.0.0.0", "/"); }
+            catch (MalformedURLException err1) {
+                Log.d(MainActivity.class.getSimpleName(), "This should never happen.", err1);
+            }
+        }
+        FutureTask<Event> task = new FutureTask<>(new ThreadTemplate(getURL));
+        executor.execute(task);
+        try { useEvent = task.get(); }
+        catch (InterruptedException err) {
+            Log.d(MainActivity.class.getSimpleName(), "This shouldn't happen.", err);
+        }
+        catch (ExecutionException err) {
+            Log.d(MainActivity.class.getSimpleName(), "This shouldn't happen either.", err);
+        }
         // Update the information displayed to the user.
-        updateUi(earthquake);
+        updateUi(useEvent);
     }
 
     /**
      * Update the UI with the given earthquake information.
      */
     private void updateUi(Event earthquake) {
-        TextView titleTextView = (TextView) findViewById(R.id.title);
+        TextView titleTextView = findViewById(R.id.title);
         titleTextView.setText(earthquake.title);
 
-        TextView tsunamiTextView = (TextView) findViewById(R.id.number_of_people);
+        TextView tsunamiTextView = findViewById(R.id.number_of_people);
         tsunamiTextView.setText(getString(R.string.num_people_felt_it, earthquake.numOfPeople));
 
-        TextView magnitudeTextView = (TextView) findViewById(R.id.perceived_magnitude);
+        TextView magnitudeTextView = findViewById(R.id.perceived_magnitude);
         magnitudeTextView.setText(earthquake.perceivedStrength);
     }
 }

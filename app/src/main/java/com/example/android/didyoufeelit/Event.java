@@ -16,7 +16,7 @@
 package com.example.android.didyoufeelit;
 
 /**
- * {@Event} represents an earthquake event.
+ * Event represents an earthquake event.
  */
 public class Event {
 
@@ -28,6 +28,12 @@ public class Event {
 
     /** Perceived strength of the earthquake from the people's responses */
     public final String perceivedStrength;
+
+    public Event() {
+        title = "Error occurred.";
+        numOfPeople = "0";
+        perceivedStrength = "-1.0";
+    }
 
     /**
      * Constructs a new {@link Event}.
